@@ -33,6 +33,11 @@ import {
   buildWhatsAppUrl,
 } from "@/lib/kulu-storage";
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
 async function fetchEntriesFromDb(): Promise<KuluEntry[]> {
   const response = await fetch("/api/entries");
   if (!response.ok) {
@@ -87,6 +92,30 @@ function Index() {
   const [search, setSearch] = useState("");
   const [brotherPhone, setBrotherPhoneState] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstallAvailable, setIsInstallAvailable] = useState(false);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+      setIsInstallAvailable(true);
+    };
+
+    const installedHandler = () => {
+      setInstallPrompt(null);
+      setIsInstallAvailable(false);
+      toast.success("App installed");
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", installedHandler);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installedHandler);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,6 +138,19 @@ function Index() {
       isMounted = false;
     };
   }, []);
+
+  async function handleInstall() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === "accepted") {
+      toast.success("Install accepted");
+    } else {
+      toast("Install cancelled");
+    }
+    setInstallPrompt(null);
+    setIsInstallAvailable(false);
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -206,44 +248,56 @@ function Index() {
   return (
     <div className="min-h-screen bg-background pb-16">
       <header className="bg-primary text-primary-foreground px-4 py-5 shadow-md">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="max-w-2xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold leading-tight">குலு பதிவேடு</h1>
             <p className="text-sm opacity-90">Kulu Manager</p>
           </div>
-          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" variant="secondary" className="h-12 w-12 p-0 rounded-full">
-                <Settings className="h-6 w-6" />
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            {isInstallAvailable ? (
+              <Button size="lg" variant="secondary" onClick={handleInstall} className="h-12">
+                <Download className="h-5 w-5" />
+                Install App
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>அமைப்புகள் · Settings</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 py-2">
-                <Label htmlFor="bro" className="text-base">
-                  அண்ணன் WhatsApp எண் · Brother's WhatsApp
-                </Label>
-                <Input
-                  id="bro"
-                  inputMode="tel"
-                  placeholder="+919876543210"
-                  className="h-14 text-lg"
-                  value={brotherPhone}
-                  onChange={(e) => setBrotherPhoneState(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Include country code (e.g. +91 for India).
-                </p>
-              </div>
-              <DialogFooter>
-                <Button size="lg" onClick={saveSettings} className="w-full h-12 text-base">
-                  சேமி · Save
+            ) : (
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Use browser menu to install on mobile
+              </p>
+            )}
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg" variant="secondary" className="h-12 w-12 p-0 rounded-full">
+                  <Settings className="h-6 w-6" />
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>அமைப்புகள் · Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <Label htmlFor="bro" className="text-base">
+                    அண்ணன் WhatsApp எண் · Brother's WhatsApp
+                  </Label>
+                  <Input
+                    id="bro"
+                    inputMode="tel"
+                    placeholder="+919876543210"
+                    className="h-14 text-lg"
+                    value={brotherPhone}
+                    onChange={(e) => setBrotherPhoneState(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Include country code (e.g. +91 for India).
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button size="lg" onClick={saveSettings} className="w-full h-12 text-base">
+                    சேமி · Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </header>
 

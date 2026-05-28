@@ -33,8 +33,7 @@ export default defineConfig({
         manifest: {
           name: "Kulu Manager · குலு பதிவேடு",
           short_name: "Kulu Manager",
-          description:
-            "Easy monthly Kulu collection tracker with WhatsApp sharing.",
+          description: "Easy monthly Kulu collection tracker with WhatsApp sharing.",
           start_url: "/",
           display: "standalone",
           background_color: "#ffffff",
